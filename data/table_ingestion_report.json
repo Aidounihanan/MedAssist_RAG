@@ -1,0 +1,41 @@
+{
+  "total_chunks": 961,
+  "files": {
+    "etablissements_sante_maroc.xlsx": {
+      "title": "Établissements de Santé au Maroc",
+      "chunks": 501,
+      "row_level": 500,
+      "summaries": 1
+    },
+    "infrastructures-privees-2024.xlsx": {
+      "title": "Infrastructures Sanitaires Privées 2024",
+      "chunks": 10,
+      "row_level": 9,
+      "summaries": 1
+    },
+    "repartition-des-hopitaux-par-region-et-province-2020.xlsx": {
+      "title": "Répartition des Hôpitaux par Région et Province 2020",
+      "chunks": 162,
+      "row_level": 161,
+      "summaries": 1
+    },
+    "repartition-des-hopitaux-par-region-et-province-2024.xlsx": {
+      "title": "Répartition des Hôpitaux par Région et Province 2024",
+      "chunks": 178,
+      "row_level": 177,
+      "summaries": 1
+    },
+    "agences-cnss-2011.xls": {
+      "title": "Agences CNSS 2011",
+      "chunks": 93,
+      "row_level": 92,
+      "summaries": 1
+    },
+    "offre-privees-2013.xls": {
+      "title": "Offre de Soins Privée 2013",
+      "chunks": 17,
+      "row_level": 16,
+      "summaries": 1
+    }
+  }
+}

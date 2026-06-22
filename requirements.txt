@@ -1,0 +1,53 @@
+# ================================================================
+# MedAssist RAG — requirements.txt
+# Python 3.12 | Testé sans conflits | Juin 2025
+# ================================================================
+
+# ── Core LangChain ──────────────────────────────────────────────
+langchain==1.3.4
+langchain-openai==1.2.2
+langchain-community==0.4.2
+langchain-chroma==1.1.0
+
+langchain-huggingface==0.1.2
+
+# ── Lecture de documents ────────────────────────────────────────
+pypdf==6.13.1
+pdfplumber==0.11.9
+camelot-py==2.0.0
+openpyxl==3.1.5
+pandas==2.2.3
+
+xlrd==2.0.1
+certifi
+urllib3
+
+# ── Documents mixtes (texte + tableaux + images) ────────────────
+# Note : installe aussi beautifulsoup4==4.15.0 automatiquement
+unstructured==0.22.32
+
+# ── Embeddings locaux (gratuit, sans clé API) ───────────────────
+sentence-transformers==3.3.1
+
+# ── Vector store dev ────────────────────────────────────────────
+chromadb==1.5.9
+
+# ── OCR ─────────────────────────────────────────────────────────
+pytesseract==0.3.13
+Pillow==11.0.0
+
+# ── Web scraping ─────────────────────────────────────────────────
+httpx==0.28.1
+
+# ── Utilitaires ─────────────────────────────────────────────────
+python-dotenv==1.2.2
+tqdm>=4.65.0
+pymupdf==1.24.14
+unstructured[pdf]
+# ================================================================
+# PROD vector stores — décommenter en Phase 6 uniquement
+# ================================================================
+# weaviate-client==4.9.3
+# qdrant-client==1.12.1
+
+pytest

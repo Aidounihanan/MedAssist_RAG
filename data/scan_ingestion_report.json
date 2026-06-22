@@ -1,0 +1,29 @@
+{
+  "total_chunks": 16,
+  "files": {
+    "guide_avc_msps.pdf": {
+      "title": "Guide AVC — Orientation et Prise en Charge",
+      "speciality": "neurologie",
+      "chunks": 3,
+      "avg_confidence": 69.8
+    },
+    "guide_Filières_DE_SOINS_UNCV_VF.pdf": {
+      "title": "Filières de Soins et Protocoles SCA et AVC — Urgences Neuro-Cardiovasculaires",
+      "speciality": "cardiologie",
+      "chunks": 8,
+      "avg_confidence": 90.2
+    },
+    "guide_sca_msps.pdf": {
+      "title": "Guide SCA — Syndrome Coronarien Aigu",
+      "speciality": "cardiologie",
+      "chunks": 2,
+      "avg_confidence": 83.3
+    },
+    "guide_urgences_pediatriques_msps.pdf": {
+      "title": "Guide des Urgences Pédiatriques",
+      "speciality": "pediatrie",
+      "chunks": 3,
+      "avg_confidence": 83.5
+    }
+  }
+}
