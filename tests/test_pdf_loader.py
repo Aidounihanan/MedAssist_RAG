@@ -35,7 +35,10 @@ def test_clean_extracted_text_handles_empty_input():
 def test_merge_short_fragments_combines_short_chunks():
     chunks = [
         Document(page_content="court", metadata={"source": "a.pdf"}),
-        Document(page_content="un texte suffisamment long pour ne pas être fusionné", metadata={"source": "a.pdf"}),
+        Document(
+            page_content="un texte suffisamment long pour ne pas être fusionné",
+            metadata={"source": "a.pdf"},
+        ),
     ]
     merged = merge_short_fragments(chunks, min_length=50)
     assert len(merged) == 1
