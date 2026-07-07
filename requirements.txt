@@ -1,6 +1,6 @@
 # ================================================================
 # MedAssist RAG — requirements.txt
-# Python 3.12 | Testé sans conflits | Juin 2025
+# Python 3.12 | Testé sans conflits (pip install --dry-run) | Juillet 2026
 # ================================================================
 
 # ── Core LangChain ──────────────────────────────────────────────
@@ -9,7 +9,7 @@ langchain-openai==1.2.2
 langchain-community==0.4.2
 langchain-chroma==1.1.0
 
-langchain-huggingface==0.2.0
+langchain-huggingface==1.2.2
 
 # ── Lecture de documents ────────────────────────────────────────
 pypdf==6.13.1
@@ -24,7 +24,7 @@ urllib3
 
 # ── Documents mixtes (texte + tableaux + images) ────────────────
 # Note : installe aussi beautifulsoup4==4.15.0 automatiquement
-unstructured==0.22.32
+unstructured[pdf]==0.22.32
 
 # ── Embeddings locaux (gratuit, sans clé API) ───────────────────
 sentence-transformers==3.3.1
@@ -34,7 +34,7 @@ chromadb==1.5.9
 
 # ── OCR ─────────────────────────────────────────────────────────
 pytesseract==0.3.13
-Pillow==11.0.0
+Pillow==11.3.0
 
 # ── Web scraping ─────────────────────────────────────────────────
 httpx==0.28.1
@@ -43,7 +43,6 @@ httpx==0.28.1
 python-dotenv==1.2.2
 tqdm>=4.65.0
 pymupdf==1.24.14
-unstructured[pdf]
 # ================================================================
 # PROD vector stores — décommenter en Phase 6 uniquement
 # ================================================================
