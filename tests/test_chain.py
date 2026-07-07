@@ -30,3 +30,7 @@ def test_is_hors_scope_detects_diagnostic_request():
 
 def test_is_hors_scope_false_for_protocol_question():
     assert is_hors_scope("Quel est le protocole de prise en charge de la tuberculose ?") is False
+
+
+def test_is_hors_scope_false_for_diagnostic_criteria_question():
+    assert is_hors_scope("Quels sont les critères de diagnostic de la tuberculose ?") is False
