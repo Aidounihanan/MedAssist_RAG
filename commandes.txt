@@ -1,0 +1,15 @@
+
+# Indexer tous les documents 
+python scripts/index_all.py --reset
+
+# Interroger MedAssist en CLI
+python scripts/query.py "Quels sont les critères de diagnostic de la tuberculose ?"
+
+# Mode conversation continue
+python scripts/query.py --interactive
+
+# Lancer les tests
+pytest tests/ -v
+
+# Lancer la démo Streamlit (inchangée, déjà propre)
+streamlit run app.py

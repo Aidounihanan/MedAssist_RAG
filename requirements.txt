@@ -51,3 +51,9 @@ unstructured[pdf]
 # qdrant-client==1.12.1
 
 pytest
+
+# Outils de qualité de code:
+ruff 
+black 
+mypy 
+pytest-cov

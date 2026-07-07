@@ -7,9 +7,9 @@ Usage:
     python scripts/query.py --interactive
 """
 
-import sys
 import argparse
 import logging
+import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -44,7 +44,7 @@ def main() -> None:
     args = parse_args()
 
     if not args.question and not args.interactive:
-        print("Usage: python scripts/query.py \"votre question\" ou --interactive")
+        print('Usage: python scripts/query.py "votre question" ou --interactive')
         sys.exit(1)
 
     chain = MedAssistChain(k=args.k, use_filter=True)

@@ -8,9 +8,9 @@ Tests : tests/test_vector_store.py
 Orchestration CLI : scripts/index_all.py
 """
 
-import os
 import logging
-from typing import List, Optional
+import os
+
 from dotenv import load_dotenv
 from langchain_core.documents import Document
 
@@ -29,6 +29,7 @@ def get_embeddings():
 
     if use_local:
         from langchain_huggingface import HuggingFaceEmbeddings
+
         logger.info("Embeddings: all-MiniLM-L6-v2 (local, 384 dims)")
         return HuggingFaceEmbeddings(
             model_name="sentence-transformers/all-MiniLM-L6-v2",
@@ -37,6 +38,7 @@ def get_embeddings():
         )
 
     from langchain_openai import OpenAIEmbeddings
+
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise ValueError("OPENAI_API_KEY manquante dans .env")
@@ -51,6 +53,7 @@ class ChromaVectorStore:
 
     def __init__(self, embeddings, persist_dir: str = "chroma_db"):
         from langchain_chroma import Chroma
+
         self.persist_dir = persist_dir
         self.embeddings = embeddings
         self._store = Chroma(
@@ -59,21 +62,21 @@ class ChromaVectorStore:
             persist_directory=persist_dir,
         )
 
-    def add_documents(self, documents: List[Document], batch_size: int = 100) -> int:
+    def add_documents(self, documents: list[Document], batch_size: int = 100) -> int:
         """Ajoute des documents par batch. Retourne le nombre indexé."""
         total = len(documents)
         for i in range(0, total, batch_size):
-            self._store.add_documents(documents[i:i + batch_size])
+            self._store.add_documents(documents[i : i + batch_size])
         return total
 
     def similarity_search(
-        self, query: str, k: int = 5, filter_dict: Optional[dict] = None
-    ) -> List[Document]:
+        self, query: str, k: int = 5, filter_dict: dict | None = None
+    ) -> list[Document]:
         return self._store.similarity_search(query=query, k=k, filter=filter_dict)
 
     def similarity_search_with_score(
-        self, query: str, k: int = 5, filter_dict: Optional[dict] = None
-    ) -> List[tuple]:
+        self, query: str, k: int = 5, filter_dict: dict | None = None
+    ) -> list[tuple]:
         return self._store.similarity_search_with_score(query=query, k=k, filter=filter_dict)
 
     def count(self) -> int:
@@ -83,13 +86,14 @@ class ChromaVectorStore:
         """Vide la collection avant une ré-indexation complète."""
         self._store.delete_collection()
         from langchain_chroma import Chroma
+
         self._store = Chroma(
             collection_name=self.COLLECTION_NAME,
             embedding_function=self.embeddings,
             persist_directory=self.persist_dir,
         )
 
-    def as_retriever(self, k: int = 5, filter_dict: Optional[dict] = None):
+    def as_retriever(self, k: int = 5, filter_dict: dict | None = None):
         search_kwargs = {"k": k}
         if filter_dict:
             search_kwargs["filter"] = filter_dict
@@ -105,8 +109,7 @@ class WeaviateVectorStore:
             from langchain_weaviate import WeaviateVectorStore as LCWeaviate
         except ImportError as e:
             raise ImportError(
-                "weaviate-client non installé. "
-                "Décommenter dans requirements.txt et réinstaller."
+                "weaviate-client non installé. " "Décommenter dans requirements.txt et réinstaller."
             ) from e
 
         url = os.getenv("WEAVIATE_URL")
@@ -125,10 +128,10 @@ class WeaviateVectorStore:
             attributes=["source", "speciality", "doc_type", "year", "page"],
         )
 
-    def add_documents(self, documents: List[Document], batch_size: int = 100) -> int:
+    def add_documents(self, documents: list[Document], batch_size: int = 100) -> int:
         total = len(documents)
         for i in range(0, total, batch_size):
-            self._store.add_documents(documents[i:i + batch_size])
+            self._store.add_documents(documents[i : i + batch_size])
         return total
 
     def similarity_search(self, query, k=5, filter_dict=None):
@@ -150,21 +153,22 @@ class QdrantVectorStore:
             from qdrant_client import QdrantClient
         except ImportError as e:
             raise ImportError(
-                "qdrant-client non installé. "
-                "Décommenter dans requirements.txt et réinstaller."
+                "qdrant-client non installé. " "Décommenter dans requirements.txt et réinstaller."
             ) from e
 
         url = os.getenv("QDRANT_URL")
         api_key = os.getenv("QDRANT_API_KEY")
         self.client = QdrantClient(url=url, api_key=api_key)
         self._store = LCQdrant(
-            client=self.client, collection_name="medassist_docs", embeddings=embeddings,
+            client=self.client,
+            collection_name="medassist_docs",
+            embeddings=embeddings,
         )
 
     def add_documents(self, documents, batch_size=100):
         total = len(documents)
         for i in range(0, total, batch_size):
-            self._store.add_documents(documents[i:i + batch_size])
+            self._store.add_documents(documents[i : i + batch_size])
         return total
 
     def similarity_search(self, query, k=5, filter_dict=None):
@@ -200,6 +204,4 @@ def get_vector_store(embeddings=None):
     if backend == "qdrant":
         return QdrantVectorStore(embeddings)
 
-    raise ValueError(
-        f"Backend inconnu: '{backend}'. Valeurs acceptées: chroma | weaviate | qdrant"
-    )
+    raise ValueError(f"Backend inconnu: '{backend}'. Valeurs acceptées: chroma | weaviate | qdrant")

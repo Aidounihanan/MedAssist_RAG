@@ -8,14 +8,15 @@ Tests : tests/test_chain.py
 Démo interactive : app.py (Streamlit)
 """
 
+import logging
 import os
 import time
-import logging
-from typing import List, Dict, Any, Optional, Tuple
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from typing import Any
+
 from dotenv import load_dotenv
 from langchain_core.documents import Document
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 
 from src.embeddings.vector_store import get_embeddings, get_vector_store
 
@@ -47,45 +48,96 @@ FORMAT DE RÉPONSE :
 - Mise en garde médicale si le sujet le requiert
 """
 
-SPECIALITY_KEYWORDS: Dict[str, List[str]] = {
+SPECIALITY_KEYWORDS: dict[str, list[str]] = {
     "infectiologie": [
-        "tuberculose", "tb", "bacille", "koch", "pnlat", "tep",
-        "infection", "antibiotique", "bactérie", "viral",
+        "tuberculose",
+        "tb",
+        "bacille",
+        "koch",
+        "pnlat",
+        "tep",
+        "infection",
+        "antibiotique",
+        "bactérie",
+        "viral",
     ],
     "cardiologie": [
-        "cardiaque", "cœur", "infarctus", "sca", "avc", "coronarien",
-        "hypertension", "hta", "tensionnel", "cardiovasculaire",
-        "artérielle", "cardio", "pression artérielle",
+        "cardiaque",
+        "cœur",
+        "infarctus",
+        "sca",
+        "avc",
+        "coronarien",
+        "hypertension",
+        "hta",
+        "tensionnel",
+        "cardiovasculaire",
+        "artérielle",
+        "cardio",
+        "pression artérielle",
     ],
     "neurologie": [
-        "avc", "accident vasculaire", "cérébral", "neurologique",
-        "neurovascular", "cerveau", "ischémique", "hémorragique",
+        "avc",
+        "accident vasculaire",
+        "cérébral",
+        "neurologique",
+        "neurovascular",
+        "cerveau",
+        "ischémique",
+        "hémorragique",
     ],
     "pediatrie": [
-        "enfant", "nourrisson", "pédiatrique", "vaccination", "vaccin",
-        "calendrier vaccinal", "bébé", "nouveau-né", "pédiatrie",
+        "enfant",
+        "nourrisson",
+        "pédiatrique",
+        "vaccination",
+        "vaccin",
+        "calendrier vaccinal",
+        "bébé",
+        "nouveau-né",
+        "pédiatrie",
     ],
     "epidemiologie": [
-        "épidémiologie", "prévalence", "incidence", "statistique",
-        "maroc", "population", "enquête", "nationale", "mortalité",
+        "épidémiologie",
+        "prévalence",
+        "incidence",
+        "statistique",
+        "maroc",
+        "population",
+        "enquête",
+        "nationale",
+        "mortalité",
     ],
     "organisation_sanitaire": [
-        "hôpital", "établissement", "centre de santé", "région",
-        "province", "délégation", "infrastructure", "cnss",
+        "hôpital",
+        "établissement",
+        "centre de santé",
+        "région",
+        "province",
+        "délégation",
+        "infrastructure",
+        "cnss",
     ],
 }
 
 HORS_SCOPE_PATTERNS = [
-    "prescris", "prescrit", "ordonnance", "quel médicament",
-    "dosage exact", "dose exacte", "diagnostic de",
-    "est-ce que j'ai", "ai-je", "suis-je malade",
+    "prescris",
+    "prescrit",
+    "ordonnance",
+    "quel médicament",
+    "dosage exact",
+    "dose exacte",
+    "diagnostic de",
+    "est-ce que j'ai",
+    "ai-je",
+    "suis-je malade",
 ]
 
 
-def detect_speciality(question: str) -> Optional[str]:
+def detect_speciality(question: str) -> str | None:
     """Détecte la spécialité médicale depuis la question, ou None si générale."""
     question_lower = question.lower()
-    scores: Dict[str, int] = {}
+    scores: dict[str, int] = {}
 
     for speciality, keywords in SPECIALITY_KEYWORDS.items():
         score = sum(1 for kw in keywords if kw in question_lower)
@@ -104,14 +156,15 @@ def is_hors_scope(question: str) -> bool:
 @dataclass
 class RAGResponse:
     """Réponse structurée de la RAG chain, avec sources et métadonnées."""
+
     question: str
     answer: str
-    sources: List[Dict[str, Any]]
-    speciality_detected: Optional[str]
+    sources: list[dict[str, Any]]
+    speciality_detected: str | None
     latency_ms: float
     n_chunks_retrieved: int
     is_hors_scope: bool = False
-    error: Optional[str] = None
+    error: str | None = None
 
 
 def get_llm(temperature: float = 0.1):
@@ -121,6 +174,7 @@ def get_llm(temperature: float = 0.1):
         raise ValueError("OPENAI_API_KEY manquante dans .env")
 
     from langchain_openai import ChatOpenAI
+
     return ChatOpenAI(
         model="gpt-4o-mini",
         temperature=temperature,
@@ -129,7 +183,7 @@ def get_llm(temperature: float = 0.1):
     )
 
 
-def build_context(docs_with_scores: List[Tuple[Document, float]]) -> str:
+def build_context(docs_with_scores: list[tuple[Document, float]]) -> str:
     """Construit le contexte textuel numéroté à injecter dans le prompt."""
     context_parts = []
 
@@ -195,7 +249,7 @@ class MedAssistChain:
             is_hors_scope=True,
         )
 
-    def _no_results_response(self, question: str, speciality: Optional[str], t0: float) -> RAGResponse:
+    def _no_results_response(self, question: str, speciality: str | None, t0: float) -> RAGResponse:
         return RAGResponse(
             question=question,
             answer=(
@@ -231,12 +285,16 @@ class MedAssistChain:
         filter_dict = {"speciality": speciality} if (self.use_filter and speciality) else None
 
         docs_with_scores = self.vs.similarity_search_with_score(
-            query=question, k=self.k, filter_dict=filter_dict,
+            query=question,
+            k=self.k,
+            filter_dict=filter_dict,
         )
 
         if len(docs_with_scores) < 2 and filter_dict:
             docs_with_scores = self.vs.similarity_search_with_score(
-                query=question, k=self.k, filter_dict=None,
+                query=question,
+                k=self.k,
+                filter_dict=None,
             )
 
         if not docs_with_scores:
@@ -265,18 +323,20 @@ Cite les sources avec le format [Document X]."""
             answer = llm_response.content
         except Exception as e:
             logger.error("Erreur génération LLM: %s", e)
-            answer = "Une erreur est survenue lors de la génération de la réponse. Merci de réessayer."
+            answer = (
+                "Une erreur est survenue lors de la génération de la réponse. Merci de réessayer."
+            )
 
         sources = [
             {
-                "title":        doc.metadata.get("title", ""),
-                "page":         doc.metadata.get("page", "?"),
-                "source":       doc.metadata.get("source", ""),
-                "speciality":   doc.metadata.get("speciality", ""),
+                "title": doc.metadata.get("title", ""),
+                "page": doc.metadata.get("page", "?"),
+                "source": doc.metadata.get("source", ""),
+                "speciality": doc.metadata.get("speciality", ""),
                 "element_type": doc.metadata.get("element_type", "pdf"),
-                "year":         doc.metadata.get("year", ""),
-                "score":        score,
-                "excerpt":      doc.page_content[:150],
+                "year": doc.metadata.get("year", ""),
+                "score": score,
+                "excerpt": doc.page_content[:150],
             }
             for doc, score in docs_with_scores
         ]

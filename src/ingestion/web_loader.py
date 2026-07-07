@@ -8,15 +8,14 @@ Tests : tests/test_web_loader.py
 Orchestration CLI : scripts/index_all.py
 """
 
-import re
 import json
 import logging
-from pathlib import Path
-from typing import List, Dict, Any
+import re
 from dataclasses import dataclass, field
+from pathlib import Path
 
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 logger = logging.getLogger(__name__)
 
@@ -62,12 +61,13 @@ MIN_LINE_LENGTH = 30
 @dataclass
 class WebLoaderResult:
     """Résultat du chargement d'une page web scrapée."""
+
     file: str
-    chunks: List[Document]
+    chunks: list[Document]
     n_chunks: int
     word_count_before: int
     word_count_after: int
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -85,7 +85,7 @@ def clean_sharepoint_text(text: str) -> str:
     if not text:
         return ""
 
-    lines = text.split('\n')
+    lines = text.split("\n")
     cleaned = []
     seen_lines = set()
 
@@ -112,13 +112,13 @@ def clean_sharepoint_text(text: str) -> str:
             continue
         seen_lines.add(line_key)
 
-        if re.match(r'^https?://', line) and len(line.split()) == 1:
+        if re.match(r"^https?://", line) and len(line.split()) == 1:
             continue
 
         cleaned.append(line)
 
-    text = '\n'.join(cleaned)
-    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = "\n".join(cleaned)
+    text = re.sub(r"\n{3,}", "\n\n", text)
 
     return text.strip()
 
@@ -141,7 +141,7 @@ def load_web_json(
     """
     path = Path(json_path)
     filename = path.name
-    errors: List[str] = []
+    errors: list[str] = []
 
     try:
         with open(json_path, encoding="utf-8") as f:
@@ -149,7 +149,14 @@ def load_web_json(
     except Exception as e:
         errors.append(f"Lecture JSON échouée: {e}")
         logger.error("Lecture échouée pour %s: %s", filename, e)
-        return WebLoaderResult(file=filename, chunks=[], n_chunks=0, word_count_before=0, word_count_after=0, errors=errors)
+        return WebLoaderResult(
+            file=filename,
+            chunks=[],
+            n_chunks=0,
+            word_count_before=0,
+            word_count_after=0,
+            errors=errors,
+        )
 
     raw_content = data.get("content", "")
     word_count_before = len(raw_content.split())
@@ -159,23 +166,29 @@ def load_web_json(
 
     if word_count_after < 50:
         errors.append(f"Contenu insuffisant après nettoyage ({word_count_after} mots)")
-        logger.warning("%s: contenu insuffisant après nettoyage (%d mots)", filename, word_count_after)
+        logger.warning(
+            "%s: contenu insuffisant après nettoyage (%d mots)", filename, word_count_after
+        )
         return WebLoaderResult(
-            file=filename, chunks=[], n_chunks=0,
-            word_count_before=word_count_before, word_count_after=word_count_after, errors=errors,
+            file=filename,
+            chunks=[],
+            n_chunks=0,
+            word_count_before=word_count_before,
+            word_count_after=word_count_after,
+            errors=errors,
         )
 
     file_metadata = {
-        "source":     data.get("source_url", str(path)),
-        "title":      data.get("title", filename),
-        "doc_type":   "web_page",
+        "source": data.get("source_url", str(path)),
+        "title": data.get("title", filename),
+        "doc_type": "web_page",
         "source_org": "MSPS Maroc",
         "speciality": data.get("speciality", "general"),
-        "language":   data.get("language", "fr"),
-        "country":    data.get("country", "MA"),
+        "language": data.get("language", "fr"),
+        "country": data.get("country", "MA"),
         "scraped_at": data.get("scraped_at", ""),
-        "year":       2024,
-        "topics":     data.get("description", ""),
+        "year": 2024,
+        "topics": data.get("description", ""),
     }
 
     splitter = RecursiveCharacterTextSplitter(
@@ -193,33 +206,39 @@ def load_web_json(
             continue
 
         metadata = {
-            "source":          file_metadata["source"],
-            "chunk_id":        f"{path.stem}_chunk_{idx}",
-            "page":            0,
-            "chunk_index":     idx,
-            "title":           file_metadata["title"],
-            "doc_type":        file_metadata["doc_type"],
-            "source_org":      file_metadata["source_org"],
-            "year":            file_metadata["year"],
-            "speciality":      file_metadata["speciality"],
-            "language":        file_metadata["language"],
-            "country":         file_metadata["country"],
-            "topics":          file_metadata["topics"],
-            "scraped_at":      file_metadata["scraped_at"],
-            "chunk_size":      len(chunk_text),
+            "source": file_metadata["source"],
+            "chunk_id": f"{path.stem}_chunk_{idx}",
+            "page": 0,
+            "chunk_index": idx,
+            "title": file_metadata["title"],
+            "doc_type": file_metadata["doc_type"],
+            "source_org": file_metadata["source_org"],
+            "year": file_metadata["year"],
+            "speciality": file_metadata["speciality"],
+            "language": file_metadata["language"],
+            "country": file_metadata["country"],
+            "topics": file_metadata["topics"],
+            "scraped_at": file_metadata["scraped_at"],
+            "chunk_size": len(chunk_text),
             "chunking_method": "recursive_character",
-            "element_type":    "web_content",
+            "element_type": "web_content",
         }
         chunks.append(Document(page_content=chunk_text, metadata=metadata))
 
     logger.info(
         "Web %s: %d chunks produits (%.1f%% bruit supprimé)",
-        filename, len(chunks), round((1 - word_count_after / max(word_count_before, 1)) * 100, 1),
+        filename,
+        len(chunks),
+        round((1 - word_count_after / max(word_count_before, 1)) * 100, 1),
     )
 
     return WebLoaderResult(
-        file=filename, chunks=chunks, n_chunks=len(chunks),
-        word_count_before=word_count_before, word_count_after=word_count_after, errors=errors,
+        file=filename,
+        chunks=chunks,
+        n_chunks=len(chunks),
+        word_count_before=word_count_before,
+        word_count_after=word_count_after,
+        errors=errors,
     )
 
 
@@ -227,7 +246,7 @@ def load_all_web(
     folder: str = "data/04_web",
     chunk_size: int = 512,
     chunk_overlap: int = 64,
-) -> List[Document]:
+) -> list[Document]:
     """
     Charge tous les fichiers JSON du dossier web.
 
@@ -246,7 +265,7 @@ def load_all_web(
         logger.warning("Aucun fichier JSON trouvé dans %s", folder)
         return []
 
-    all_chunks: List[Document] = []
+    all_chunks: list[Document] = []
 
     for json_file in json_files:
         result = load_web_json(str(json_file), chunk_size, chunk_overlap)

@@ -8,11 +8,11 @@ Tests : tests/test_table_loader.py
 Orchestration CLI : scripts/index_all.py
 """
 
-import re
 import logging
-from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
+import re
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from langchain_core.documents import Document
@@ -20,7 +20,7 @@ from langchain_core.documents import Document
 logger = logging.getLogger(__name__)
 
 
-TABLE_METADATA_MAP: Dict[str, Dict[str, Any]] = {
+TABLE_METADATA_MAP: dict[str, dict[str, Any]] = {
     "etablissements_sante_maroc.xlsx": {
         "title": "Établissements de Santé au Maroc",
         "speciality": "organisation_sanitaire",
@@ -81,12 +81,13 @@ TABLE_METADATA_MAP: Dict[str, Dict[str, Any]] = {
 @dataclass
 class TableLoaderResult:
     """Résultat du chargement d'un fichier tabulaire."""
+
     file: str
-    chunks: List[Document]
+    chunks: list[Document]
     n_sheets: int
     n_rows: int
     n_chunks: int
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -98,12 +99,12 @@ def clean_cell(value: Any) -> str:
     if pd.isna(value):
         return ""
     text = str(value).strip()
-    if re.match(r'^\d+\.0$', text):
+    if re.match(r"^\d+\.0$", text):
         text = text[:-2]
     return text
 
 
-def detect_headers(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
+def detect_headers(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     """
     Détecte la vraie ligne de headers dans un DataFrame.
     Certains fichiers MSPS ont des lignes de titre avant les vrais headers.
@@ -111,7 +112,7 @@ def detect_headers(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
     Returns:
         Tuple (df_nettoyé, liste_headers)
     """
-    unnamed_count = sum(1 for c in df.columns if 'Unnamed' in str(c))
+    unnamed_count = sum(1 for c in df.columns if "Unnamed" in str(c))
 
     if unnamed_count <= len(df.columns) // 2:
         headers = [str(c).strip() for c in df.columns]
@@ -122,7 +123,7 @@ def detect_headers(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
         non_null = sum(1 for v in row if not pd.isna(v) and str(v).strip())
         if non_null >= len(df.columns) * 0.6:
             new_headers = [clean_cell(v) or f"Col_{j}" for j, v in enumerate(row)]
-            df_clean = df.iloc[i + 1:].reset_index(drop=True)
+            df_clean = df.iloc[i + 1 :].reset_index(drop=True)
             df_clean.columns = new_headers
             return df_clean, new_headers
 
@@ -132,11 +133,11 @@ def detect_headers(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
 
 def row_level_chunks(
     df: pd.DataFrame,
-    headers: List[str],
-    file_metadata: Dict[str, Any],
+    headers: list[str],
+    file_metadata: dict[str, Any],
     sheet_name: str = "Sheet1",
     max_rows: int = 500,
-) -> List[Document]:
+) -> list[Document]:
     """
     Chaque ligne du tableau devient un chunk autonome.
     Le header est répété dans chaque chunk pour le contexte.
@@ -159,21 +160,21 @@ def row_level_chunks(
             continue
 
         metadata = {
-            "source":          file_metadata.get("source", ""),
-            "chunk_id":        f"{Path(file_metadata['source']).stem}_sheet_{sheet_name}_row_{row_idx}",
-            "sheet":           sheet_name,
-            "row_index":       row_idx,
-            "title":           file_metadata.get("title", ""),
-            "doc_type":        file_metadata.get("doc_type", ""),
-            "source_org":      file_metadata.get("source_org", "MSPS Maroc"),
-            "year":            file_metadata.get("year", 0),
-            "speciality":      file_metadata.get("speciality", ""),
-            "language":        file_metadata.get("language", "fr"),
-            "country":         "MA",
-            "topics":          ", ".join(file_metadata.get("topics", [])),
-            "chunk_size":      len(chunk_text),
+            "source": file_metadata.get("source", ""),
+            "chunk_id": f"{Path(file_metadata['source']).stem}_sheet_{sheet_name}_row_{row_idx}",
+            "sheet": sheet_name,
+            "row_index": row_idx,
+            "title": file_metadata.get("title", ""),
+            "doc_type": file_metadata.get("doc_type", ""),
+            "source_org": file_metadata.get("source_org", "MSPS Maroc"),
+            "year": file_metadata.get("year", 0),
+            "speciality": file_metadata.get("speciality", ""),
+            "language": file_metadata.get("language", "fr"),
+            "country": "MA",
+            "topics": ", ".join(file_metadata.get("topics", [])),
+            "chunk_size": len(chunk_text),
             "chunking_method": "row_level",
-            "element_type":    "table_row",
+            "element_type": "table_row",
         }
 
         chunks.append(Document(page_content=chunk_text, metadata=metadata))
@@ -183,10 +184,10 @@ def row_level_chunks(
 
 def table_summary_chunk(
     df: pd.DataFrame,
-    headers: List[str],
-    file_metadata: Dict[str, Any],
+    headers: list[str],
+    file_metadata: dict[str, Any],
     sheet_name: str = "Sheet1",
-) -> Optional[Document]:
+) -> Document | None:
     """
     Génère un chunk de résumé statistique du tableau (sans LLM).
     Utile pour les questions globales type "combien d'établissements ?".
@@ -224,34 +225,34 @@ def table_summary_chunk(
         summary_text += "Données :\n" + "\n".join(f"  - {s}" for s in col_summaries[:10])
 
     metadata = {
-        "source":          file_metadata.get("source", ""),
-        "chunk_id":        f"{Path(file_metadata['source']).stem}_sheet_{sheet_name}_summary",
-        "sheet":           sheet_name,
-        "row_index":       -1,
-        "title":           file_metadata.get("title", ""),
-        "doc_type":        file_metadata.get("doc_type", ""),
-        "source_org":      file_metadata.get("source_org", "MSPS Maroc"),
-        "year":            file_metadata.get("year", 0),
-        "speciality":      file_metadata.get("speciality", ""),
-        "language":        file_metadata.get("language", "fr"),
-        "country":         "MA",
-        "topics":          ", ".join(file_metadata.get("topics", [])),
-        "chunk_size":      len(summary_text),
+        "source": file_metadata.get("source", ""),
+        "chunk_id": f"{Path(file_metadata['source']).stem}_sheet_{sheet_name}_summary",
+        "sheet": sheet_name,
+        "row_index": -1,
+        "title": file_metadata.get("title", ""),
+        "doc_type": file_metadata.get("doc_type", ""),
+        "source_org": file_metadata.get("source_org", "MSPS Maroc"),
+        "year": file_metadata.get("year", 0),
+        "speciality": file_metadata.get("speciality", ""),
+        "language": file_metadata.get("language", "fr"),
+        "country": "MA",
+        "topics": ", ".join(file_metadata.get("topics", [])),
+        "chunk_size": len(summary_text),
         "chunking_method": "table_summary",
-        "element_type":    "table_summary",
+        "element_type": "table_summary",
     }
 
     return Document(page_content=summary_text, metadata=metadata)
 
 
-def read_table_file(file_path: str) -> Dict[str, pd.DataFrame]:
+def read_table_file(file_path: str) -> dict[str, pd.DataFrame]:
     """
     Lit un fichier tabulaire et retourne un dict {sheet_name: DataFrame}.
     Gère .xlsx, .xls, .csv.
     """
     path = Path(file_path)
     ext = path.suffix.lower()
-    sheets: Dict[str, pd.DataFrame] = {}
+    sheets: dict[str, pd.DataFrame] = {}
 
     if ext == ".csv":
         for encoding in ["utf-8", "latin-1", "cp1252"]:
@@ -297,7 +298,7 @@ def load_table(
     """
     path = Path(file_path)
     filename = path.name
-    errors: List[str] = []
+    errors: list[str] = []
 
     known_meta = TABLE_METADATA_MAP.get(filename, {})
     file_metadata = {
@@ -311,9 +312,11 @@ def load_table(
     except Exception as e:
         errors.append(f"Lecture échouée: {e}")
         logger.error("Lecture échouée pour %s: %s", filename, e)
-        return TableLoaderResult(file=filename, chunks=[], n_sheets=0, n_rows=0, n_chunks=0, errors=errors)
+        return TableLoaderResult(
+            file=filename, chunks=[], n_sheets=0, n_rows=0, n_chunks=0, errors=errors
+        )
 
-    all_chunks: List[Document] = []
+    all_chunks: list[Document] = []
     total_rows = 0
 
     for sheet_name, df_raw in sheets.items():
@@ -331,23 +334,32 @@ def load_table(
             all_chunks.append(summary)
 
         row_chunks = row_level_chunks(
-            df, headers, file_metadata,
-            sheet_name=sheet_name, max_rows=max_rows_per_sheet,
+            df,
+            headers,
+            file_metadata,
+            sheet_name=sheet_name,
+            max_rows=max_rows_per_sheet,
         )
         all_chunks.extend(row_chunks)
 
-    logger.info("Table %s: %d chunks produits (%d lignes lues)", filename, len(all_chunks), total_rows)
+    logger.info(
+        "Table %s: %d chunks produits (%d lignes lues)", filename, len(all_chunks), total_rows
+    )
 
     return TableLoaderResult(
-        file=filename, chunks=all_chunks, n_sheets=len(sheets),
-        n_rows=total_rows, n_chunks=len(all_chunks), errors=errors,
+        file=filename,
+        chunks=all_chunks,
+        n_sheets=len(sheets),
+        n_rows=total_rows,
+        n_chunks=len(all_chunks),
+        errors=errors,
     )
 
 
 def load_all_tables(
     folder: str = "data/02_tables",
     max_rows_per_sheet: int = 500,
-) -> List[Document]:
+) -> list[Document]:
     """
     Charge tous les fichiers Excel/XLS/CSV d'un dossier.
 
@@ -359,7 +371,7 @@ def load_all_tables(
         Liste de tous les chunks combinés
     """
     folder_path = Path(folder)
-    files: List[Path] = []
+    files: list[Path] = []
     for ext in ("*.xlsx", "*.xls", "*.csv"):
         files.extend(sorted(folder_path.glob(ext)))
 
@@ -367,7 +379,7 @@ def load_all_tables(
         logger.warning("Aucun fichier tabulaire trouvé dans %s", folder)
         return []
 
-    all_chunks: List[Document] = []
+    all_chunks: list[Document] = []
 
     for file_path in files:
         result = load_table(str(file_path), max_rows_per_sheet)

@@ -12,22 +12,22 @@ Prérequis système (Windows) :
   - Chemin dans .env : TESSERACT_CMD=C:\\Program Files\\Tesseract-OCR\\tesseract.exe
 """
 
+import logging
 import os
 import re
-import logging
-from pathlib import Path
-from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 load_dotenv()
 logger = logging.getLogger(__name__)
 
 
-SCAN_METADATA_MAP: Dict[str, Dict[str, Any]] = {
+SCAN_METADATA_MAP: dict[str, dict[str, Any]] = {
     "guide_avc_msps.pdf": {
         "title": "Guide AVC — Orientation et Prise en Charge",
         "speciality": "neurologie",
@@ -79,12 +79,13 @@ SCAN_METADATA_MAP: Dict[str, Dict[str, Any]] = {
 @dataclass
 class ScanLoaderResult:
     """Résultat du chargement OCR d'un PDF scanné."""
+
     file: str
-    chunks: List[Document]
+    chunks: list[Document]
     n_pages: int
     n_chunks: int
     ocr_engine: str
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -126,9 +127,9 @@ def clean_ocr_text(text: str) -> str:
     if not text:
         return ""
 
-    text = re.sub(r'[^\x20-\x7E\x80-\xFF\n]', ' ', text)
+    text = re.sub(r"[^\x20-\x7E\x80-\xFF\n]", " ", text)
 
-    lines = text.split('\n')
+    lines = text.split("\n")
     cleaned = []
 
     for line in lines:
@@ -139,19 +140,19 @@ def clean_ocr_text(text: str) -> str:
             continue
         if len(line) < 3:
             continue
-        if re.fullmatch(r'[-]?\s*\d{1,3}\s*[-]?', line):
+        if re.fullmatch(r"[-]?\s*\d{1,3}\s*[-]?", line):
             continue
 
-        non_alpha = sum(1 for c in line if not c.isalnum() and c not in ' .,;:-()/')
+        non_alpha = sum(1 for c in line if not c.isalnum() and c not in " .,;:-()/")
         if len(line) > 0 and non_alpha / len(line) > 0.5:
             continue
 
         cleaned.append(line)
 
-    text = '\n'.join(cleaned)
-    text = re.sub(r'-\n([a-z\xe0-\xff])', r'\1', text)
-    text = re.sub(r' {2,}', ' ', text)
-    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = "\n".join(cleaned)
+    text = re.sub(r"-\n([a-z\xe0-\xff])", r"\1", text)
+    text = re.sub(r" {2,}", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
 
     return text.strip()
 
@@ -160,8 +161,8 @@ def ocr_pdf_tesseract(
     pdf_path: str,
     dpi: int = 250,
     lang: str = "fra+eng",
-    max_pages: Optional[int] = None,
-) -> List[Dict[str, Any]]:
+    max_pages: int | None = None,
+) -> list[dict[str, Any]]:
     """
     Extrait le texte d'un PDF scanné via Tesseract OCR.
 
@@ -174,10 +175,11 @@ def ocr_pdf_tesseract(
     Returns:
         Liste de {page_num, text, char_count, confidence}
     """
-    import pytesseract
-    import fitz
-    from PIL import Image
     import io
+
+    import fitz
+    import pytesseract
+    from PIL import Image
 
     reader = fitz.open(pdf_path)
     pages_data = []
@@ -195,7 +197,7 @@ def ocr_pdf_tesseract(
             data = pytesseract.image_to_data(
                 img, lang=lang, config=config, output_type=pytesseract.Output.DICT
             )
-            confidences = [c for c in data['conf'] if c != -1]
+            confidences = [c for c in data["conf"] if c != -1]
             avg_conf = sum(confidences) / len(confidences) if confidences else 0
         except Exception as e:
             logger.warning("OCR échoué page %d de %s: %s", i + 1, pdf_path, e)
@@ -203,23 +205,25 @@ def ocr_pdf_tesseract(
 
         clean = clean_ocr_text(raw_text)
         if clean and len(clean) > 50:
-            pages_data.append({
-                "page_num": i + 1,
-                "text": clean,
-                "char_count": len(clean),
-                "confidence": round(avg_conf, 1),
-            })
+            pages_data.append(
+                {
+                    "page_num": i + 1,
+                    "text": clean,
+                    "char_count": len(clean),
+                    "confidence": round(avg_conf, 1),
+                }
+            )
 
     reader.close()
     return pages_data
 
 
 def chunk_ocr_text(
-    pages: List[Dict],
-    file_metadata: Dict[str, Any],
+    pages: list[dict],
+    file_metadata: dict[str, Any],
     chunk_size: int = 512,
     chunk_overlap: int = 64,
-) -> List[Document]:
+) -> list[Document]:
     """Chunking du texte OCR avec métadonnée de confiance par chunk."""
 
     splitter = RecursiveCharacterTextSplitter(
@@ -244,22 +248,22 @@ def chunk_ocr_text(
                 continue
 
             metadata = {
-                "source":         file_metadata.get("source", ""),
-                "chunk_id":       f"{Path(file_metadata['source']).stem}_ocr_p{page_num}_c{chunk_index}",
-                "page":           page_num,
-                "chunk_index":    chunk_index,
-                "title":          file_metadata.get("title", ""),
-                "doc_type":       file_metadata.get("doc_type", ""),
-                "source_org":     file_metadata.get("source_org", "MSPS Maroc"),
-                "year":           file_metadata.get("year", 0),
-                "speciality":     file_metadata.get("speciality", ""),
-                "language":       file_metadata.get("language", "fr"),
-                "country":        "MA",
-                "topics":         ", ".join(file_metadata.get("topics", [])),
-                "chunk_size":     len(chunk_text),
-                "chunking_method":"recursive_character",
-                "element_type":   "ocr_text",
-                "ocr_engine":     "tesseract",
+                "source": file_metadata.get("source", ""),
+                "chunk_id": f"{Path(file_metadata['source']).stem}_ocr_p{page_num}_c{chunk_index}",
+                "page": page_num,
+                "chunk_index": chunk_index,
+                "title": file_metadata.get("title", ""),
+                "doc_type": file_metadata.get("doc_type", ""),
+                "source_org": file_metadata.get("source_org", "MSPS Maroc"),
+                "year": file_metadata.get("year", 0),
+                "speciality": file_metadata.get("speciality", ""),
+                "language": file_metadata.get("language", "fr"),
+                "country": "MA",
+                "topics": ", ".join(file_metadata.get("topics", [])),
+                "chunk_size": len(chunk_text),
+                "chunking_method": "recursive_character",
+                "element_type": "ocr_text",
+                "ocr_engine": "tesseract",
                 "ocr_confidence": confidence,
             }
 
@@ -275,7 +279,7 @@ def load_scan(
     lang: str = "fra+eng",
     chunk_size: int = 512,
     chunk_overlap: int = 64,
-    max_pages: Optional[int] = None,
+    max_pages: int | None = None,
 ) -> ScanLoaderResult:
     """
     Charge un PDF scanné via OCR et retourne les chunks.
@@ -293,7 +297,7 @@ def load_scan(
     """
     path = Path(pdf_path)
     filename = path.name
-    errors: List[str] = []
+    errors: list[str] = []
 
     if not configure_tesseract():
         msg = (
@@ -303,7 +307,9 @@ def load_scan(
         )
         errors.append(msg)
         logger.error(msg)
-        return ScanLoaderResult(file=filename, chunks=[], n_pages=0, n_chunks=0, ocr_engine="tesseract", errors=errors)
+        return ScanLoaderResult(
+            file=filename, chunks=[], n_pages=0, n_chunks=0, ocr_engine="tesseract", errors=errors
+        )
 
     known_meta = SCAN_METADATA_MAP.get(filename, {})
     file_metadata = {
@@ -318,22 +324,37 @@ def load_scan(
     except Exception as e:
         errors.append(f"OCR échoué: {e}")
         logger.error("OCR échoué pour %s: %s", filename, e)
-        return ScanLoaderResult(file=filename, chunks=[], n_pages=0, n_chunks=0, ocr_engine="tesseract", errors=errors)
+        return ScanLoaderResult(
+            file=filename, chunks=[], n_pages=0, n_chunks=0, ocr_engine="tesseract", errors=errors
+        )
 
     if not pages:
         errors.append("Aucun texte extrait par OCR")
-        return ScanLoaderResult(file=filename, chunks=[], n_pages=0, n_chunks=0, ocr_engine="tesseract", errors=errors)
+        return ScanLoaderResult(
+            file=filename, chunks=[], n_pages=0, n_chunks=0, ocr_engine="tesseract", errors=errors
+        )
 
     try:
         chunks = chunk_ocr_text(pages, file_metadata, chunk_size, chunk_overlap)
     except Exception as e:
         errors.append(f"Chunking échoué: {e}")
         logger.error("Chunking échoué pour %s: %s", filename, e)
-        return ScanLoaderResult(file=filename, chunks=[], n_pages=len(pages), n_chunks=0, ocr_engine="tesseract", errors=errors)
+        return ScanLoaderResult(
+            file=filename,
+            chunks=[],
+            n_pages=len(pages),
+            n_chunks=0,
+            ocr_engine="tesseract",
+            errors=errors,
+        )
 
     return ScanLoaderResult(
-        file=filename, chunks=chunks, n_pages=len(pages),
-        n_chunks=len(chunks), ocr_engine="tesseract", errors=errors,
+        file=filename,
+        chunks=chunks,
+        n_pages=len(pages),
+        n_chunks=len(chunks),
+        ocr_engine="tesseract",
+        errors=errors,
     )
 
 
@@ -341,9 +362,9 @@ def load_all_scans(
     folder: str = "data/03_scans",
     dpi: int = 250,
     lang: str = "fra+eng",
-    max_pages_per_file: Optional[int] = None,
+    max_pages_per_file: int | None = None,
     min_confidence: float = 65.0,
-) -> List[Document]:
+) -> list[Document]:
     """
     Charge tous les PDFs scannés d'un dossier via OCR.
 
@@ -364,7 +385,7 @@ def load_all_scans(
         logger.warning("Aucun PDF trouvé dans %s", folder)
         return []
 
-    all_chunks: List[Document] = []
+    all_chunks: list[Document] = []
 
     for pdf_file in pdf_files:
         result = load_scan(str(pdf_file), dpi=dpi, lang=lang, max_pages=max_pages_per_file)
@@ -376,7 +397,12 @@ def load_all_scans(
     before = len(all_chunks)
     all_chunks = [c for c in all_chunks if c.metadata.get("ocr_confidence", 0) >= min_confidence]
     if len(all_chunks) < before:
-        logger.info("Filtre qualité OCR: %d -> %d chunks (seuil %.0f%%)", before, len(all_chunks), min_confidence)
+        logger.info(
+            "Filtre qualité OCR: %d -> %d chunks (seuil %.0f%%)",
+            before,
+            len(all_chunks),
+            min_confidence,
+        )
 
     logger.info("Ingestion scans terminée: %d chunks au total", len(all_chunks))
     return all_chunks

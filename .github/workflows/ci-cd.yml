@@ -1,0 +1,165 @@
+name: MedAssist CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+
+  # ─────────────────────────────────────────────────────────────
+  # JOB 1 — Qualité du code (lint, format, types)
+  # ─────────────────────────────────────────────────────────────
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Install lint tools
+        run: pip install ruff black mypy
+
+      - name: Run ruff
+        run: ruff check src/ scripts/ tests/
+
+      - name: Check formatting with black
+        run: black --check src/ scripts/ tests/
+
+      - name: Run mypy
+        run: mypy src/ --ignore-missing-imports
+        continue-on-error: true  # mypy en mode non-bloquant au début du projet
+
+  # ─────────────────────────────────────────────────────────────
+  # JOB 2 — Tests unitaires
+  # ─────────────────────────────────────────────────────────────
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+
+      - name: Run unit tests with coverage
+        run: pytest tests/ -v --cov=src --cov-report=term-missing --cov-report=xml
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+  # ─────────────────────────────────────────────────────────────
+  # JOB 3 — Build de l'image Docker (validation uniquement sur PR)
+  # ─────────────────────────────────────────────────────────────
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: medassist:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ─────────────────────────────────────────────────────────────
+  # JOB 4 — Évaluation RAG rapide (garde-fou qualité)
+  # ─────────────────────────────────────────────────────────────
+  eval:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run quick RAG evaluation
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          USE_LOCAL_EMBEDDINGS: "true"
+          VECTOR_STORE_BACKEND: "chroma"
+        run: python scripts/eval_quick.py --n-questions 3
+
+  # ─────────────────────────────────────────────────────────────
+  # JOB 5 — Build & push image (uniquement sur main)
+  # ─────────────────────────────────────────────────────────────
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: [build, eval]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+  # ─────────────────────────────────────────────────────────────
+  # JOB 6 — Déploiement (exemple Render — adapter selon hébergeur)
+  # ─────────────────────────────────────────────────────────────
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Trigger deploy hook
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+
+      - name: Wait for deployment
+        run: sleep 45
+
+      - name: Health check
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.PROD_URL }}/_stcore/health")
+          if [ "$response" != "200" ]; then
+            echo "Health check échoué: HTTP $response"
+            exit 1
+          fi
+          echo "Health check OK"

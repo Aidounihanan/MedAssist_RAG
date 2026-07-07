@@ -9,19 +9,19 @@ Usage:
     python scripts/index_all.py --no-scans
 """
 
+import argparse
+import logging
 import sys
 import time
-import logging
-import argparse
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.ingestion.pdf_loader import load_all_pdfs
-from src.ingestion.table_loader import load_all_tables
-from src.ingestion.scan_loader import load_all_scans
-from src.ingestion.web_loader import load_all_web
 from src.embeddings.vector_store import get_embeddings, get_vector_store
+from src.ingestion.pdf_loader import load_all_pdfs
+from src.ingestion.scan_loader import load_all_scans
+from src.ingestion.table_loader import load_all_tables
+from src.ingestion.web_loader import load_all_web
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,7 +37,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-tables", action="store_true", help="Ignorer les tableaux")
     parser.add_argument("--no-scans", action="store_true", help="Ignorer les scans OCR")
     parser.add_argument("--no-web", action="store_true", help="Ignorer le contenu web")
-    parser.add_argument("--scan-max-pages", type=int, default=None, help="Limiter les pages OCR par fichier")
+    parser.add_argument(
+        "--scan-max-pages", type=int, default=None, help="Limiter les pages OCR par fichier"
+    )
     return parser.parse_args()
 
 
@@ -92,7 +94,9 @@ def main() -> None:
 
     logger.info(
         "Indexation terminée: %d chunks en %.1fs (%.0f chunks/s)",
-        n_indexed, elapsed, n_indexed / elapsed if elapsed > 0 else 0,
+        n_indexed,
+        elapsed,
+        n_indexed / elapsed if elapsed > 0 else 0,
     )
     logger.info("Index total: %d chunks", vs.count())
 

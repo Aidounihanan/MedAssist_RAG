@@ -9,20 +9,19 @@ Cas d'usage : calendrier_vaccination_national.pdf
   - Titres         → enrichissement métadonnées
 """
 
-import re
 import json
-from pathlib import Path
-from typing import List, Dict, Any, Optional
+import re
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
 
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
-
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # ─────────────────────────────────────────────────────────────────
 # Métadonnées connues
 # ─────────────────────────────────────────────────────────────────
-MIXED_METADATA_MAP: Dict[str, Dict[str, Any]] = {
+MIXED_METADATA_MAP: dict[str, dict[str, Any]] = {
     "calendrier_vaccination_national.pdf": {
         "title": "Calendrier National de Vaccination — MSPS Maroc",
         "speciality": "pediatrie",
@@ -41,10 +40,10 @@ MIXED_METADATA_MAP: Dict[str, Dict[str, Any]] = {
 @dataclass
 class MixedLoaderResult:
     file: str
-    chunks: List[Document]
+    chunks: list[Document]
     n_chunks: int
-    element_counts: Dict[str, int]
-    errors: List[str] = field(default_factory=list)
+    element_counts: dict[str, int]
+    errors: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -58,9 +57,9 @@ def clean_element_text(text: str) -> str:
     """Nettoie le texte d'un élément Unstructured."""
     if not text:
         return ""
-    text = re.sub(r'[^\x20-\x7E\x80-\xFF\n]', ' ', text)
-    text = re.sub(r' {2,}', ' ', text)
-    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = re.sub(r"[^\x20-\x7E\x80-\xFF\n]", " ", text)
+    text = re.sub(r" {2,}", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
 
 
@@ -69,10 +68,10 @@ def clean_element_text(text: str) -> str:
 # ─────────────────────────────────────────────────────────────────
 def process_elements(
     elements: list,
-    file_metadata: Dict[str, Any],
+    file_metadata: dict[str, Any],
     chunk_size: int = 512,
     chunk_overlap: int = 64,
-) -> tuple[List[Document], Dict[str, int]]:
+) -> tuple[list[Document], dict[str, int]]:
     """
     Traite chaque élément Unstructured selon son type.
 
@@ -92,10 +91,10 @@ def process_elements(
     )
 
     chunks = []
-    element_counts: Dict[str, int] = {}
+    element_counts: dict[str, int] = {}
     chunk_index = 0
-    current_section = ""        # Titre de section courant
-    list_buffer: List[str] = [] # Buffer pour agréger les ListItems
+    current_section = ""  # Titre de section courant
+    list_buffer: list[str] = []  # Buffer pour agréger les ListItems
 
     def flush_list_buffer():
         """Vide le buffer de liste et crée un chunk."""
@@ -104,33 +103,29 @@ def process_elements(
             return
         list_text = "\n".join(f"• {item}" for item in list_buffer)
         if len(list_text) >= 50:
-            meta = build_metadata(
-                file_metadata, chunk_index, current_section, "list_items"
-            )
+            meta = build_metadata(file_metadata, chunk_index, current_section, "list_items")
             chunks.append(Document(page_content=list_text, metadata=meta))
             chunk_index += 1
         list_buffer.clear()
 
-    def build_metadata(
-        fmeta: Dict, idx: int, section: str, etype: str
-    ) -> Dict[str, Any]:
+    def build_metadata(fmeta: dict, idx: int, section: str, etype: str) -> dict[str, Any]:
         return {
-            "source":           fmeta.get("source", ""),
-            "chunk_id":         f"{Path(fmeta['source']).stem}_mixed_{idx}",
-            "page":             0,
-            "chunk_index":      idx,
-            "title":            fmeta.get("title", ""),
-            "doc_type":         fmeta.get("doc_type", ""),
-            "source_org":       fmeta.get("source_org", "MSPS Maroc"),
-            "year":             fmeta.get("year", 0),
-            "speciality":       fmeta.get("speciality", ""),
-            "language":         fmeta.get("language", "fr"),
-            "country":          "MA",
-            "topics":           ", ".join(fmeta.get("topics", [])),
-            "section":          section,
-            "chunk_size":       0,   # mis à jour après
-            "chunking_method":  "unstructured",
-            "element_type":     etype,
+            "source": fmeta.get("source", ""),
+            "chunk_id": f"{Path(fmeta['source']).stem}_mixed_{idx}",
+            "page": 0,
+            "chunk_index": idx,
+            "title": fmeta.get("title", ""),
+            "doc_type": fmeta.get("doc_type", ""),
+            "source_org": fmeta.get("source_org", "MSPS Maroc"),
+            "year": fmeta.get("year", 0),
+            "speciality": fmeta.get("speciality", ""),
+            "language": fmeta.get("language", "fr"),
+            "country": "MA",
+            "topics": ", ".join(fmeta.get("topics", [])),
+            "section": section,
+            "chunk_size": 0,  # mis à jour après
+            "chunking_method": "unstructured",
+            "element_type": etype,
         }
 
     for element in elements:
@@ -231,20 +226,16 @@ def load_mixed(
     try:
         from unstructured.partition.auto import partition
     except ImportError:
-        errors.append(
-            "unstructured non installé.\n"
-            "Installer : pip install unstructured"
-        )
+        errors.append("unstructured non installé.\n" "Installer : pip install unstructured")
         return MixedLoaderResult(
-            file=filename, chunks=[], n_chunks=0,
-            element_counts={}, errors=errors
+            file=filename, chunks=[], n_chunks=0, element_counts={}, errors=errors
         )
 
     # Métadonnées
     known_meta = MIXED_METADATA_MAP.get(filename, {})
     file_metadata = {
         "source": str(path),
-        "title":  known_meta.get("title", filename),
+        "title": known_meta.get("title", filename),
         **known_meta,
     }
 
@@ -260,7 +251,7 @@ def load_mixed(
         print(f"     -> {len(elements)} éléments détectés")
 
         # Compter les types
-        type_counts: Dict[str, int] = {}
+        type_counts: dict[str, int] = {}
         for el in elements:
             t = type(el).__name__
             type_counts[t] = type_counts.get(t, 0) + 1
@@ -269,12 +260,12 @@ def load_mixed(
     except Exception as e:
         errors.append(f"Unstructured échoué : {e}")
         print(f"     ERREUR Unstructured : {e}")
-        print(f"     -> Fallback : lecture PDF simple via pypdf")
+        print("     -> Fallback : lecture PDF simple via pypdf")
 
         # Fallback : lire comme PDF texte classique
         try:
-            from pypdf import PdfReader
             from langchain_text_splitters import RecursiveCharacterTextSplitter
+            from pypdf import PdfReader
 
             reader = PdfReader(file_path)
             all_text = ""
@@ -294,21 +285,21 @@ def load_mixed(
                     if len(chunk_text.strip()) < 50:
                         continue
                     meta = {
-                        "source":          str(path),
-                        "chunk_id":        f"{path.stem}_fallback_{idx}",
-                        "page":            0,
-                        "chunk_index":     idx,
-                        "title":           file_metadata.get("title", filename),
-                        "doc_type":        file_metadata.get("doc_type", ""),
-                        "source_org":      file_metadata.get("source_org", "MSPS Maroc"),
-                        "year":            file_metadata.get("year", 0),
-                        "speciality":      file_metadata.get("speciality", ""),
-                        "language":        file_metadata.get("language", "fr"),
-                        "country":         "MA",
-                        "topics":          ", ".join(file_metadata.get("topics", [])),
-                        "chunk_size":      len(chunk_text.strip()),
+                        "source": str(path),
+                        "chunk_id": f"{path.stem}_fallback_{idx}",
+                        "page": 0,
+                        "chunk_index": idx,
+                        "title": file_metadata.get("title", filename),
+                        "doc_type": file_metadata.get("doc_type", ""),
+                        "source_org": file_metadata.get("source_org", "MSPS Maroc"),
+                        "year": file_metadata.get("year", 0),
+                        "speciality": file_metadata.get("speciality", ""),
+                        "language": file_metadata.get("language", "fr"),
+                        "country": "MA",
+                        "topics": ", ".join(file_metadata.get("topics", [])),
+                        "chunk_size": len(chunk_text.strip()),
                         "chunking_method": "fallback_pypdf",
-                        "element_type":    "narrative_text",
+                        "element_type": "narrative_text",
                     }
                     fallback_chunks.append(Document(page_content=chunk_text.strip(), metadata=meta))
 
@@ -324,14 +315,11 @@ def load_mixed(
             errors.append(f"Fallback aussi échoué : {e2}")
 
         return MixedLoaderResult(
-            file=filename, chunks=[], n_chunks=0,
-            element_counts={}, errors=errors
+            file=filename, chunks=[], n_chunks=0, element_counts={}, errors=errors
         )
 
     # Traitement des éléments
-    chunks, element_counts = process_elements(
-        elements, file_metadata, chunk_size, chunk_overlap
-    )
+    chunks, element_counts = process_elements(elements, file_metadata, chunk_size, chunk_overlap)
     print(f"     -> {len(chunks)} chunks produits")
 
     return MixedLoaderResult(
@@ -350,7 +338,7 @@ def load_all_mixed(
     folder: str = "data/05_mixed",
     chunk_size: int = 512,
     chunk_overlap: int = 64,
-) -> List[Document]:
+) -> list[Document]:
     """Charge tous les PDFs du dossier mixte."""
 
     folder_path = Path(folder)
@@ -364,7 +352,7 @@ def load_all_mixed(
     print(f"  Chargement de {len(pdf_files)} document(s) mixte(s)")
     print(f"{'='*55}")
 
-    all_chunks: List[Document] = []
+    all_chunks: list[Document] = []
     results = []
 
     for pdf_file in pdf_files:
@@ -372,22 +360,22 @@ def load_all_mixed(
         results.append(result)
         if result.ok:
             all_chunks.extend(result.chunks)
-            print(f"     OK")
+            print("     OK")
         else:
             print(f"     ECHEC : {result.errors[0][:80] if result.errors else '?'}")
 
     print(f"\n{'='*55}")
-    print(f"  RESUME INGESTION MIXTE")
+    print("  RESUME INGESTION MIXTE")
     print(f"{'='*55}")
     print(f"  Fichiers chargés : {sum(1 for r in results if r.ok)}/{len(results)}")
     print(f"  Total chunks     : {len(all_chunks)}")
 
     if all_chunks:
-        etypes: Dict[str, int] = {}
+        etypes: dict[str, int] = {}
         for c in all_chunks:
             et = c.metadata.get("element_type", "inconnu")
             etypes[et] = etypes.get(et, 0) + 1
-        print(f"  Types de chunks :")
+        print("  Types de chunks :")
         for et, count in sorted(etypes.items(), key=lambda x: -x[1]):
             print(f"    - {et:<20} : {count}")
 
@@ -408,7 +396,7 @@ if __name__ == "__main__":
         exit(1)
 
     print(f"\n{'='*55}")
-    print(f"  APERCU — 5 premiers chunks")
+    print("  APERCU — 5 premiers chunks")
     print(f"{'='*55}")
     for i, chunk in enumerate(chunks[:5]):
         print(f"\n  Chunk {i+1}")
@@ -420,6 +408,6 @@ if __name__ == "__main__":
     with open("data/mixed_ingestion_report.json", "w", encoding="utf-8") as f:
         json.dump({"total_chunks": len(chunks)}, f, ensure_ascii=False, indent=2)
 
-    print(f"\n  Rapport : data/mixed_ingestion_report.json")
-    print(f"  Prochaine etape : mettre a jour vector_store.py")
-    print(f"  -> Ajouter load_all_web() + load_all_mixed()")
+    print("\n  Rapport : data/mixed_ingestion_report.json")
+    print("  Prochaine etape : mettre a jour vector_store.py")
+    print("  -> Ajouter load_all_web() + load_all_mixed()")

@@ -8,15 +8,15 @@ Tests : tests/test_pdf_loader.py
 Orchestration CLI : scripts/index_all.py
 """
 
-import re
 import logging
-from pathlib import Path
-from typing import List, Dict, Any, Optional
+import re
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
 
-from pypdf import PdfReader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from pypdf import PdfReader
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────────
 # Métadonnées connues par fichier
 # ─────────────────────────────────────────────────────────────────
-PDF_METADATA_MAP: Dict[str, Dict[str, Any]] = {
+PDF_METADATA_MAP: dict[str, dict[str, Any]] = {
     "guide_risque_cardiovasculaire_msps.pdf": {
         "title": "Guide d'Évaluation et de Prise en Charge du Risque Cardiovasculaire",
         "speciality": "cardiologie",
@@ -67,11 +67,12 @@ PDF_METADATA_MAP: Dict[str, Dict[str, Any]] = {
 @dataclass
 class LoaderResult:
     """Résultat du chargement d'un PDF."""
+
     file: str
-    chunks: List[Document]
+    chunks: list[Document]
     n_pages: int
     n_chunks: int
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -86,9 +87,9 @@ def clean_extracted_text(text: str) -> str:
     if not text:
         return ""
 
-    text = re.sub(r'[^\x20-\x7E\x80-\xFF\n]', ' ', text)
+    text = re.sub(r"[^\x20-\x7E\x80-\xFF\n]", " ", text)
 
-    lines = text.split('\n')
+    lines = text.split("\n")
     cleaned_lines = []
 
     for line in lines:
@@ -97,21 +98,21 @@ def clean_extracted_text(text: str) -> str:
             if cleaned_lines and cleaned_lines[-1] != "":
                 cleaned_lines.append("")
             continue
-        if re.fullmatch(r'[-]\s*\d{1,3}\s*[-]?', line):
+        if re.fullmatch(r"[-]\s*\d{1,3}\s*[-]?", line):
             continue
-        if re.match(r'^[Pp]age\s+\d+', line):
+        if re.match(r"^[Pp]age\s+\d+", line):
             continue
         cleaned_lines.append(line)
 
-    text = '\n'.join(cleaned_lines)
-    text = re.sub(r'-\n([a-z\xe0-\xff])', r'\1', text)
-    text = re.sub(r' {2,}', ' ', text)
-    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = "\n".join(cleaned_lines)
+    text = re.sub(r"-\n([a-z\xe0-\xff])", r"\1", text)
+    text = re.sub(r" {2,}", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
 
     return text.strip()
 
 
-def extract_pages(pdf_path: str) -> List[Dict[str, Any]]:
+def extract_pages(pdf_path: str) -> list[dict[str, Any]]:
     """Extrait le texte de chaque page avec métadonnées de position."""
     reader = PdfReader(pdf_path)
     pages = []
@@ -120,19 +121,21 @@ def extract_pages(pdf_path: str) -> List[Dict[str, Any]]:
         raw_text = page.extract_text() or ""
         clean = clean_extracted_text(raw_text)
         if clean:
-            pages.append({
-                "page_num": i + 1,
-                "text": clean,
-                "char_count": len(clean),
-            })
+            pages.append(
+                {
+                    "page_num": i + 1,
+                    "text": clean,
+                    "char_count": len(clean),
+                }
+            )
 
     return pages
 
 
 def merge_short_fragments(
-    chunks: List[Document],
+    chunks: list[Document],
     min_length: int = 100,
-) -> List[Document]:
+) -> list[Document]:
     """
     Fusionne les chunks trop courts avec le suivant.
     Corrige les logigrammes dont le texte est fragmenté.
@@ -161,11 +164,11 @@ def merge_short_fragments(
 
 
 def chunk_medical_pdf(
-    pages: List[Dict],
-    file_metadata: Dict[str, Any],
+    pages: list[dict],
+    file_metadata: dict[str, Any],
     chunk_size: int = 512,
     chunk_overlap: int = 64,
-) -> List[Document]:
+) -> list[Document]:
     """Chunking adapté aux documents médicaux avec fusion des fragments courts."""
 
     splitter = RecursiveCharacterTextSplitter(
@@ -189,20 +192,20 @@ def chunk_medical_pdf(
                 continue
 
             metadata = {
-                "source":           file_metadata.get("source", ""),
-                "chunk_id":         f"{Path(file_metadata['source']).stem}_p{page_num}_c{chunk_index}",
-                "page":             page_num,
-                "chunk_index":      chunk_index,
-                "title":            file_metadata.get("title", ""),
-                "doc_type":         file_metadata.get("doc_type", ""),
-                "source_org":       file_metadata.get("source_org", "MSPS Maroc"),
-                "year":             file_metadata.get("year", 0),
-                "speciality":       file_metadata.get("speciality", ""),
-                "language":         file_metadata.get("language", "fr"),
-                "country":          "MA",
-                "topics":           ", ".join(file_metadata.get("topics", [])),
-                "chunk_size":       len(chunk_text),
-                "chunking_method":  "recursive_character",
+                "source": file_metadata.get("source", ""),
+                "chunk_id": f"{Path(file_metadata['source']).stem}_p{page_num}_c{chunk_index}",
+                "page": page_num,
+                "chunk_index": chunk_index,
+                "title": file_metadata.get("title", ""),
+                "doc_type": file_metadata.get("doc_type", ""),
+                "source_org": file_metadata.get("source_org", "MSPS Maroc"),
+                "year": file_metadata.get("year", 0),
+                "speciality": file_metadata.get("speciality", ""),
+                "language": file_metadata.get("language", "fr"),
+                "country": "MA",
+                "topics": ", ".join(file_metadata.get("topics", [])),
+                "chunk_size": len(chunk_text),
+                "chunking_method": "recursive_character",
             }
 
             all_chunks.append(Document(page_content=chunk_text, metadata=metadata))
@@ -229,7 +232,7 @@ def load_pdf(
     """
     path = Path(pdf_path)
     filename = path.name
-    errors: List[str] = []
+    errors: list[str] = []
 
     known_meta = PDF_METADATA_MAP.get(filename, {})
     file_metadata = {
@@ -260,8 +263,11 @@ def load_pdf(
         return LoaderResult(file=filename, chunks=[], n_pages=len(pages), n_chunks=0, errors=errors)
 
     return LoaderResult(
-        file=filename, chunks=chunks, n_pages=len(pages),
-        n_chunks=len(chunks), errors=errors,
+        file=filename,
+        chunks=chunks,
+        n_pages=len(pages),
+        n_chunks=len(chunks),
+        errors=errors,
     )
 
 
@@ -269,8 +275,8 @@ def load_all_pdfs(
     folder: str = "data/01_pdf_text",
     chunk_size: int = 512,
     chunk_overlap: int = 64,
-    max_chunks_per_file: Optional[int] = 300,
-) -> List[Document]:
+    max_chunks_per_file: int | None = 300,
+) -> list[Document]:
     """
     Charge tous les PDFs d'un dossier avec équilibrage par spécialité.
 
@@ -293,7 +299,7 @@ def load_all_pdfs(
         logger.warning("Aucun PDF trouvé dans %s", folder)
         return []
 
-    all_chunks: List[Document] = []
+    all_chunks: list[Document] = []
 
     for pdf_file in pdf_files:
         result = load_pdf(str(pdf_file), chunk_size, chunk_overlap)
@@ -309,7 +315,9 @@ def load_all_pdfs(
             chunks_to_add = chunks_to_add[::step][:max_chunks_per_file]
             logger.info(
                 "%s: limité à %d chunks (sur %d) pour équilibrage",
-                result.file, len(chunks_to_add), original,
+                result.file,
+                len(chunks_to_add),
+                original,
             )
 
         all_chunks.extend(chunks_to_add)

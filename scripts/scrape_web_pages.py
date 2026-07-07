@@ -3,13 +3,12 @@ MedAssist RAG — Scraper pages web officielles MSPS
 Lance : python scripts/scrape_web_pages.py
 """
 
-import httpx
 import json
-import ssl
-import certifi
-from bs4 import BeautifulSoup
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+
+import httpx
+from bs4 import BeautifulSoup
 
 Path("data/04_web").mkdir(parents=True, exist_ok=True)
 
@@ -19,39 +18,40 @@ WEB_PAGES = [
         "url": "https://www.sante.gov.ma/Publications/Pages/Bullten_%C3%89pid%C3%A9miologique.aspx",
         "filename": "data/04_web/bulletin_epidemiologique_msps.json",
         "description": "Bulletin épidémiologique MSPS",
-        "speciality": "epidemiologie"
+        "speciality": "epidemiologie",
     },
     {
         "url": "https://www.sante.gov.ma/Maladies/Pages/Maladies-Cardiovasculaires.aspx",
         "filename": "data/04_web/maladies_cardiovasculaires_msps.json",
         "description": "Maladies cardiovasculaires — MSPS",
-        "speciality": "cardiologie"
+        "speciality": "cardiologie",
     },
     {
         "url": "https://www.sante.gov.ma/Maladies/Pages/Tuberculose.aspx",
         "filename": "data/04_web/tuberculose_msps.json",
         "description": "Tuberculose — MSPS",
-        "speciality": "infectiologie"
+        "speciality": "infectiologie",
     },
     {
         "url": "https://www.sante.gov.ma/Maladies/Pages/Diabete.aspx",
         "filename": "data/04_web/diabete_msps.json",
         "description": "Diabète — MSPS",
-        "speciality": "endocrinologie"
+        "speciality": "endocrinologie",
     },
     {
         "url": "https://www.sante.gov.ma/Maladies/Pages/Hypertension-Art%C3%A9rielle.aspx",
         "filename": "data/04_web/hypertension_msps.json",
         "description": "Hypertension artérielle — MSPS",
-        "speciality": "cardiologie"
+        "speciality": "cardiologie",
     },
     {
         "url": "https://www.sante.gov.ma/Maladies/Pages/Cancer.aspx",
         "filename": "data/04_web/cancer_msps.json",
         "description": "Cancer — MSPS",
-        "speciality": "oncologie"
+        "speciality": "oncologie",
     },
 ]
+
 
 # ── Fix SSL Windows ───────────────────────────────────────────────
 def get_client():
@@ -61,22 +61,18 @@ def get_client():
 def clean_text(soup: BeautifulSoup) -> str:
     """Extrait et nettoie le texte d'une page HTML."""
     # Supprimer les éléments parasites
-    for tag in soup(["nav", "footer", "script", "style",
-                     "header", "aside", "iframe", "noscript"]):
+    for tag in soup(["nav", "footer", "script", "style", "header", "aside", "iframe", "noscript"]):
         tag.decompose()
 
     # Supprimer les menus de navigation répétitifs
-    for tag in soup.find_all(class_=["menu", "navigation", "sidebar",
-                                      "breadcrumb", "ms-nav"]):
+    for tag in soup.find_all(class_=["menu", "navigation", "sidebar", "breadcrumb", "ms-nav"]):
         tag.decompose()
 
     text = soup.get_text(separator="\n", strip=True)
 
     # Nettoyer lignes vides multiples
-    lines = [l.strip() for l in text.split("\n") if l.strip()]
-
-    # Supprimer lignes trop courtes (menus, liens isolés)
-    lines = [l for l in lines if len(l) > 15]
+    lines = [line.strip() for line in text.split("\n") if line.strip()]
+    lines = [line for line in lines if len(line) > 15]
 
     # Dédupliquer les lignes consécutives identiques (menus répétés)
     deduped = []
@@ -96,8 +92,8 @@ def scrape_page(url: str, filename: str, description: str, speciality: str):
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                      "AppleWebKit/537.36 (KHTML, like Gecko) "
-                      "Chrome/120.0.0.0 Safari/537.36",
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36",
         "Accept-Language": "fr-FR,fr;q=0.9",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9",
     }
@@ -115,9 +111,9 @@ def scrape_page(url: str, filename: str, description: str, speciality: str):
 
         if word_count < 100:
             print(f"  ⚠  {description} — contenu trop court ({word_count} mots)")
-            print(f"     → Page peut nécessiter JavaScript (SPA/SharePoint)")
+            print("     → Page peut nécessiter JavaScript (SPA/SharePoint)")
             # On sauvegarde quand même pour traçabilité
-        
+
         title = soup.title.string.strip() if soup.title else description
 
         doc = {
@@ -132,7 +128,7 @@ def scrape_page(url: str, filename: str, description: str, speciality: str):
             "doc_type": "web_page",
             "source": "sante.gov.ma",
             "language": "fr",
-            "country": "MA"
+            "country": "MA",
         }
 
         with open(filename, "w", encoding="utf-8") as f:
